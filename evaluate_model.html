@@ -1,0 +1,227 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>evaluate_model module &mdash; doc-hvdc 0.0.3 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=92fd9be5" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=47de8214"></script>
+      <script src="_static/doctools.js?v=9a2dae69"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="predict_model module" href="predict_model.html" />
+    <link rel="prev" title="train_model module" href="train_model.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            doc-hvdc
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Conteúdo:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="introducao.html">Sobre o projeto</a></li>
+<li class="toctree-l1"><a class="reference internal" href="load_data.html">load_data module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="process_data.html">process_data module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="build_features.html">build_features module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="train_model.html">train_model module</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">evaluate_model module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#evaluate_model.ModelEvaluation"><code class="docutils literal notranslate"><span class="pre">ModelEvaluation</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#evaluate_model.ModelEvaluation.save"><code class="docutils literal notranslate"><span class="pre">ModelEvaluation.save()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#evaluate_model.ModelRetrigger"><code class="docutils literal notranslate"><span class="pre">ModelRetrigger</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#evaluate_model.ModelRetrigger.check_and_activate_tuning_for_high_mape"><code class="docutils literal notranslate"><span class="pre">ModelRetrigger.check_and_activate_tuning_for_high_mape()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#evaluate_model.ModelRetrigger.reset_tuning_flags"><code class="docutils literal notranslate"><span class="pre">ModelRetrigger.reset_tuning_flags()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="predict_model.html">predict_model module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="visualize.html">visualize module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dash.html">Dashboard</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">doc-hvdc</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">evaluate_model module</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/evaluate_model.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-evaluate_model">
+<span id="evaluate-model-module"></span><h1>evaluate_model module<a class="headerlink" href="#module-evaluate_model" title="Link to this heading"></a></h1>
+<p>Arquivo model faz o treino e teste do modelo.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="evaluate_model.ModelEvaluation">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">evaluate_model.</span></span><span class="sig-name descname"><span class="pre">ModelEvaluation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">models</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dfs_train</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dfs_test</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">components</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">set</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flag_cloud</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/evaluate_model.html#ModelEvaluation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#evaluate_model.ModelEvaluation" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A funcao utiliza o algoritmo do Prophet para fazer uma previsao da temperatura
+para cada uma das valvulas.</p>
+<section id="attributes">
+<h2>Attributes<a class="headerlink" href="#attributes" title="Link to this heading"></a></h2>
+<blockquote>
+<div><dl class="simple">
+<dt>models: list</dt><dd><p>Lista dos modelos preditivos utilizados por componente.</p>
+</dd>
+<dt>dfs_test: list</dt><dd><p>Lista com os dataframes de treino por componente.</p>
+</dd>
+<dt>dfs_train: list</dt><dd><p>Lista com os dataframes de teste por componente.</p>
+</dd>
+<dt>flag_cloud: list</dt><dd><p>Booleano que indica se o modelo vai executar localmente ou no GCP.</p>
+</dd>
+</dl>
+</div></blockquote>
+</section>
+<section id="methods">
+<h2>Methods<a class="headerlink" href="#methods" title="Link to this heading"></a></h2>
+<blockquote>
+<div><dl class="simple">
+<dt>save():</dt><dd><p>Método que salva as previsões dos modelos preditivos.</p>
+</dd>
+</dl>
+</div></blockquote>
+<dl class="py method">
+<dt class="sig sig-object py" id="evaluate_model.ModelEvaluation.save">
+<span class="sig-name descname"><span class="pre">save</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/evaluate_model.html#ModelEvaluation.save"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#evaluate_model.ModelEvaluation.save" title="Link to this definition"></a></dt>
+<dd><p>O método salva as bases de dados de avaliação dos modelos, com os valores
+de MAPE.</p>
+</dd></dl>
+
+</section>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="evaluate_model.ModelRetrigger">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">evaluate_model.</span></span><span class="sig-name descname"><span class="pre">ModelRetrigger</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mapes_exec</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flag_cloud</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/evaluate_model.html#ModelRetrigger"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#evaluate_model.ModelRetrigger" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Classe para configurar o arquivo de tuning com base no desempenho dos modelos.</p>
+<p>A classe permite verificar os MAPEs dos modelos, ativar o tuning para os componentes com desempenho abaixo do esperado
+e resetar os flags de tuning.</p>
+<section id="id1">
+<h2>Attributes<a class="headerlink" href="#id1" title="Link to this heading"></a></h2>
+<dl class="simple">
+<dt>mapes_exec<span class="classifier">pd.DataFrame</span></dt><dd><p>DataFrame contendo os MAPEs da última execução para cada componente.</p>
+</dd>
+<dt>flag_cloud<span class="classifier">bool</span></dt><dd><p>Indica se o processamento ocorrerá no ambiente cloud.</p>
+</dd>
+</dl>
+</section>
+<section id="id2">
+<h2>Methods<a class="headerlink" href="#id2" title="Link to this heading"></a></h2>
+<dl class="simple">
+<dt>_convert_tuning_to_str(tuning: dict) -&gt; str</dt><dd><p>Converte o dicionário de tuning para uma string com o formato original.</p>
+</dd>
+<dt>check_and_activate_tuning_for_high_mape(threshold: float = x.y) -&gt; bool</dt><dd><p>Verifica os MAPEs dos modelos e ativa o tuning para os componentes que excedem threshold.</p>
+</dd>
+<dt>reset_tuning_flags() -&gt; None</dt><dd><p>Reseta os flags de tuning de todos os componentes para False.</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="evaluate_model.ModelRetrigger.check_and_activate_tuning_for_high_mape">
+<span class="sig-name descname"><span class="pre">check_and_activate_tuning_for_high_mape</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">7.0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="reference internal" href="_modules/evaluate_model.html#ModelRetrigger.check_and_activate_tuning_for_high_mape"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#evaluate_model.ModelRetrigger.check_and_activate_tuning_for_high_mape" title="Link to this definition"></a></dt>
+<dd><p>Verifica os MAPEs dos modelos e ativa o tuning para os componentes que excedem o threshold.</p>
+<section id="parameters">
+<h3>Parameters<a class="headerlink" href="#parameters" title="Link to this heading"></a></h3>
+<dl class="simple">
+<dt>threshold<span class="classifier">float</span></dt><dd><p>Valor limite do MAPE para acionar o tuning, por padrão 7.0.</p>
+</dd>
+</dl>
+</section>
+<section id="returns">
+<h3>Returns<a class="headerlink" href="#returns" title="Link to this heading"></a></h3>
+<dl class="simple">
+<dt>bool</dt><dd><p>True se pelo menos um componente teve o tuning ativado; caso contrário, False.</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="evaluate_model.ModelRetrigger.reset_tuning_flags">
+<span class="sig-name descname"><span class="pre">reset_tuning_flags</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/evaluate_model.html#ModelRetrigger.reset_tuning_flags"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#evaluate_model.ModelRetrigger.reset_tuning_flags" title="Link to this definition"></a></dt>
+<dd><p>Reseta os flags de tuning de todos os componentes, definindo-os como False.</p>
+<section id="id3">
+<h3>Returns<a class="headerlink" href="#id3" title="Link to this heading"></a></h3>
+<p>None</p>
+</section>
+</dd></dl>
+
+</section>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="train_model.html" class="btn btn-neutral float-left" title="train_model module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="predict_model.html" class="btn btn-neutral float-right" title="predict_model module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Cássio Freitas Daldegan.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

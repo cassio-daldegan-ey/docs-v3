@@ -1,0 +1,663 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>load_data &mdash; doc-hvdc 0.0.2 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=92fd9be5" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=e3a6060d"></script>
+      <script src="../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            doc-hvdc
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Conteúdo:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introducao.html">Sobre o projeto</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../load_data.html">load_data module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../process_data.html">process_data module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../build_features.html">build_features module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../train_model.html">train_model module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../evaluate_model.html">evaluate_model module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../predict_model.html">predict_model module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../visualize.html">visualize module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../dash.html">Dashboard</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">doc-hvdc</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Module code</a></li>
+      <li class="breadcrumb-item active">load_data</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for load_data</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Esse script carrega os dados de temperatura e do SAGE utilizados no modelo.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">itertools</span>
+<span class="kn">from</span> <span class="nn">os</span> <span class="kn">import</span> <span class="n">listdir</span>
+<span class="kn">from</span> <span class="nn">os.path</span> <span class="kn">import</span> <span class="n">isfile</span><span class="p">,</span> <span class="n">join</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">google.cloud</span> <span class="kn">import</span> <span class="n">storage</span><span class="p">,</span> <span class="n">bigquery</span>
+
+<div class="viewcode-block" id="DataImporting">
+<a class="viewcode-back" href="../load_data.html#load_data.DataImporting">[docs]</a>
+<span class="k">class</span> <span class="nc">DataImporting</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Uma classe que promove a importação de dados.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    data_folder: pd.DataFrame</span>
+<span class="sd">        Caminho para a pasta onde estao os dados enviados pelo hvdc.</span>
+
+<span class="sd">    Methods</span>
+<span class="sd">    -------</span>
+<span class="sd">    temperatura(data_folder:str,equip:list,files:list,flag_cloud:bool) -&gt; pd.DataFrame</span>
+<span class="sd">        Gera a base de dados com os valores de temperatura.</span>
+
+<span class="sd">    sage(flag_cloud:bool) -&gt; pd.DataFrame</span>
+<span class="sd">        Gera a base de dados com os valores do SAGE.</span>
+
+<span class="sd">    save_export() -&gt; (pd.DataFrame,pd.DataFrame)</span>
+<span class="sd">        Exporta e salva as bases de dados de temperatura e do SAGE.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_folder</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">flag_cloud</span><span class="p">:</span> <span class="nb">bool</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Inicializa a classe com o caminho para a pasta onde estão salvos os valores</span>
+<span class="sd">        de temperatura e o booleano que indica se o modelo vai ser executado localmente</span>
+<span class="sd">        ou no GCP.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data_folder</span> <span class="o">=</span> <span class="n">data_folder</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">flag_cloud</span> <span class="o">=</span> <span class="n">flag_cloud</span>
+    
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_select_componente</span><span class="p">(</span><span class="n">files</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">nome_componente</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        A funcao analisa os nomes de todos os arquivos com</span>
+<span class="sd">        dados de temperatura e selecionar apenas os nomes que contém o nome</span>
+<span class="sd">        definido na funcao.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">            files: list</span>
+<span class="sd">                Lista com o nome de todos os arquivos presentes na pasta inputs.</span>
+
+<span class="sd">            nome_componente: str</span>
+<span class="sd">                String com o componente que estamos procurando nos nomes dos arquivos.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">            lista_nomes: list</span>
+<span class="sd">                Lista com os nomes de todos os arquivos nos quais se encontra o componente</span>
+<span class="sd">                especificado.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">lista_nomes</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">x</span>
+            <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">itertools</span><span class="o">.</span><span class="n">chain</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">chain</span><span class="p">(</span><span class="n">files</span><span class="p">)]))</span>
+            <span class="k">if</span> <span class="n">nome_componente</span> <span class="ow">in</span> <span class="n">x</span>
+        <span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">lista_nomes</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_select_max_column</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        A funcao seleciona a temperatura que apresenta os valores</span>
+<span class="sd">        de temperatura maxima entre as variaveis de nome 1, 2 e 3. Ficam apenas as</span>
+<span class="sd">        as variaveis componente e de valor maximo.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">            df: pd.DataFrame</span>
+<span class="sd">                Base de dados com todos os valores de temperatura.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">            df: pd.DataFrame</span>
+<span class="sd">                Base de dados com os valores de temperatura maxima.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]:</span>
+            <span class="n">df</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">float</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">&gt;</span> <span class="nb">max</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="mi">2</span><span class="p">]))</span> <span class="o">&amp;</span> <span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">&gt;</span> <span class="nb">max</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="mi">3</span><span class="p">])):</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;Componente&quot;</span><span class="p">]]</span>
+        <span class="k">elif</span> <span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="o">&gt;</span> <span class="nb">max</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span> <span class="o">&amp;</span> <span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="o">&gt;</span> <span class="nb">max</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="mi">3</span><span class="p">])):</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;Componente&quot;</span><span class="p">]]</span>
+        <span class="k">elif</span> <span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span> <span class="o">&gt;</span> <span class="nb">max</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span> <span class="o">&amp;</span> <span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span> <span class="o">&gt;</span> <span class="nb">max</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="mi">2</span><span class="p">])):</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;Componente&quot;</span><span class="p">]]</span>
+
+        <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s2">&quot;Data&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Temp Maxima&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Componente&quot;</span><span class="p">,</span>
+        <span class="p">]</span>
+        <span class="k">return</span> <span class="n">df</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_timestamp_to_datetime</span><span class="p">(</span><span class="n">variable</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        A funcao pega os dados em timestamp e transforma</span>
+<span class="sd">        em datetime.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        variable: pd.DataFrame</span>
+<span class="sd">            Variavel com os dados em formato timestamp.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        date_time: pd.DataFrame</span>
+<span class="sd">            Variavel com os dados em formato datetime.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">seconds_since_epoch</span> <span class="o">=</span> <span class="n">variable</span> <span class="o">/</span> <span class="mf">1e7</span>
+        <span class="n">dotnet_epoch</span> <span class="o">=</span> <span class="n">datetime</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">date_time</span> <span class="o">=</span> <span class="n">dotnet_epoch</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">seconds</span><span class="o">=</span><span class="n">seconds_since_epoch</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">date_time</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_rename_valvulas</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        A funcao modifica os nomes das valvulas de retangulo ou elipse para os nomes</span>
+<span class="sd">        corretos utilizados na sala de valvulas. Tambem filtramos apenas tiristores</span>
+<span class="sd">        e reatores, pois para os demais equipamentos nao fazemos feature importance.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        df: pd.DataFrame</span>
+<span class="sd">            Base de dados de temperatura.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        df: pd.DataFrame</span>
+<span class="sd">            Base de dados de temperatura com os nomes corrigidos.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">col</span> <span class="o">=</span> <span class="s2">&quot;Componente&quot;</span>
+        <span class="n">conditions</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s2">&quot;Elipse 2&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Retangulo 3&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Retangulo 4&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Elipse 7&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Elipse 5&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Elipse 6&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Retangulo 1&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Retangulo 0&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Ponto 8&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Ponto 9&quot;</span>
+        <span class="p">]</span>
+        <span class="n">components_names</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s2">&quot;Modulo Tiristor V1.A3&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Reator V2.A3.L3&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Reator V2.A7.L7&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Modulo Tiristor V1.A8&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Modulo Tiristor V1.A7&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Modulo Tiristor V1.A4&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Reator V1.A3.L3&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Reator V1.A7.L7&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Bucha X1&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Bucha X2&quot;</span>
+        <span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">component_name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">components_names</span><span class="p">):</span>
+            <span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">((</span><span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">==</span> <span class="n">conditions</span><span class="p">[</span><span class="n">i</span><span class="p">]),</span> <span class="n">component_name</span><span class="p">,</span> <span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">])</span>
+
+        <span class="c1"># Vamos selecionar apenas o que for reator, tiristor ou para-raio</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">components_names</span><span class="p">)]</span>
+
+        <span class="k">return</span> <span class="n">df</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_train_test</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        A funcao cria uma variavel que epecifica quais observacoes</span>
+<span class="sd">        em nossa base de dados serao utilizados como base de treino e teste.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">            df: pd.DataFrame</span>
+<span class="sd">                Base de dados de temperatura.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">            df: pd.DataFrame</span>
+<span class="sd">                Base de dados de temperatura acrescida da coluna que especifica se</span>
+<span class="sd">                cada observacao vai ser de treino ou teste.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Definindo periodos de treino e teste...&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Vamos criar uma variavel que define se os dados sao de teste ou de</span>
+        <span class="c1"># treino. Vamos usar como teste o último dia de dados. O restante</span>
+        <span class="c1"># é treino.</span>
+
+        <span class="n">dfs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">comp</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;Componente&quot;</span><span class="p">])):</span>
+            <span class="n">traintest</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;Componente&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">comp</span><span class="p">]</span>
+            <span class="n">traintest</span> <span class="o">=</span> <span class="n">traintest</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="s2">&quot;Data&quot;</span><span class="p">)</span>
+            <span class="n">train</span> <span class="o">=</span> <span class="n">traintest</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">traintest</span><span class="p">)</span> <span class="o">-</span> <span class="mi">24</span> <span class="o">*</span> <span class="mi">7</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">deep</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">train</span><span class="p">[</span><span class="s2">&quot;Treino/Teste&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;Treino&quot;</span>
+            <span class="n">test</span> <span class="o">=</span> <span class="n">traintest</span><span class="o">.</span><span class="n">tail</span><span class="p">(</span><span class="mi">24</span> <span class="o">*</span> <span class="mi">7</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">deep</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">test</span><span class="p">[</span><span class="s2">&quot;Treino/Teste&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;Teste&quot;</span>
+            <span class="n">dfs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">train</span><span class="p">)</span>
+            <span class="n">dfs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">test</span><span class="p">)</span>
+
+        <span class="c1"># Vamos unir as bases de treino e teste e ordenar a base.</span>
+
+        <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">dfs</span><span class="p">)</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Componente&quot;</span><span class="p">,</span> <span class="s2">&quot;Treino/Teste&quot;</span><span class="p">],</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">df</span>
+    
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_fetch_component_name</span><span class="p">(</span><span class="n">nome_arquivo</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Extrai o nome do componente a partir do nome do arquivo fonte.</span>
+
+<span class="sd">        Este método analisa a string do nome do arquivo com o padrão:</span>
+<span class="sd">        &#39;YYYYMMDD_teste_P_&lt;componente&gt;_&lt;números&gt;.dtd&#39;</span>
+<span class="sd">        e retorna o nome do componente.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        nome_arquivo : str</span>
+<span class="sd">            String com o nome do arquivo, seguindo o padrão </span>
+<span class="sd">            &#39;YYYYMMDD_teste_P_&lt;componente&gt;_&lt;números&gt;.dtd&#39;.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        str</span>
+<span class="sd">            Nome do componente extraído. Caso o padrão não seja encontrado, retorna a string original.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">parte</span> <span class="o">=</span> <span class="n">nome_arquivo</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;teste_P_&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">componente</span> <span class="o">=</span> <span class="n">parte</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">componente</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">nome_arquivo</span>
+
+    <span class="nd">@staticmethod</span> 
+    <span class="k">def</span> <span class="nf">_get_camera_data_from_bq</span><span class="p">():</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Busca os dados das câmeras a partir do BigQuery e retorna um DataFrame formatado.</span>
+
+<span class="sd">        Este método realiza a consulta no BigQuery utilizando as configurações definidas</span>
+<span class="sd">        no arquivo &#39;env.json&#39;. Após a consulta, os dados são processados para converter a coluna</span>
+<span class="sd">        de data e extrair o nome do componente a partir do nome do arquivo fonte, retornando um</span>
+<span class="sd">        DataFrame com as colunas: &#39;Data&#39;, &#39;Componente&#39; e &#39;Temperatura&#39;.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        pd.DataFrame</span>
+<span class="sd">            DataFrame contendo as colunas &#39;Data&#39;, &#39;Componente&#39; e &#39;Temperatura&#39; com os dados extraídos</span>
+<span class="sd">            e processados.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;env.json&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">env</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+            <span class="n">project_id</span> <span class="o">=</span> <span class="n">env</span><span class="p">[</span><span class="s2">&quot;PROJECT_ID&quot;</span><span class="p">]</span>
+            <span class="n">bq_dataset_id</span> <span class="o">=</span> <span class="n">env</span><span class="p">[</span><span class="s2">&quot;BQ_DATASET_ID&quot;</span><span class="p">]</span>
+            <span class="n">bq_table_name</span> <span class="o">=</span> <span class="n">env</span><span class="p">[</span><span class="s2">&quot;BQ_TABLE_NAME&quot;</span><span class="p">]</span>
+        <span class="n">client</span> <span class="o">=</span> <span class="n">bigquery</span><span class="o">.</span><span class="n">Client</span><span class="p">(</span><span class="n">project</span><span class="o">=</span><span class="n">project_id</span><span class="p">)</span>
+
+        <span class="n">bq_query</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="sa">f</span><span class="s1">&#39;SELECT * FROM `</span><span class="si">{</span><span class="n">project_id</span><span class="si">}</span><span class="s1">.</span><span class="si">{</span><span class="n">bq_dataset_id</span><span class="si">}</span><span class="s1">.</span><span class="si">{</span><span class="n">bq_table_name</span><span class="si">}</span><span class="s1">`&#39;</span>
+        <span class="s1">&#39;order by 1 asc&#39;</span>
+        <span class="c1"># &#39;LIMIT 100&#39;</span>
+        <span class="p">)</span>
+        
+        <span class="n">df_bq_cameras_data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
+        <span class="n">df_bq_cameras_data</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">query_and_wait</span><span class="p">(</span><span class="n">bq_query</span><span class="p">)</span><span class="o">.</span><span class="n">to_dataframe</span><span class="p">()</span>
+
+        <span class="n">df_bq_cameras_data</span><span class="p">[</span><span class="s2">&quot;Data&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">df_bq_cameras_data</span><span class="p">[</span><span class="s2">&quot;formatted_truncated_hour&quot;</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;coerce&quot;</span><span class="p">)</span>
+
+        <span class="n">df_bq_cameras_data</span> <span class="o">=</span> <span class="n">df_bq_cameras_data</span><span class="p">[[</span><span class="s2">&quot;Data&quot;</span><span class="p">,</span> <span class="s2">&quot;vl_temperatura_maxima&quot;</span><span class="p">,</span> <span class="s2">&quot;nm_arquivo_fonte&quot;</span><span class="p">]]</span>
+        <span class="n">df_bq_cameras_data</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;vl_temperatura_maxima&quot;</span><span class="p">:</span> <span class="s2">&quot;Temperatura&quot;</span><span class="p">},</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># Tratamento da coluna de Data para retirar a parte de fuso horario </span>
+        <span class="n">df_bq_cameras_data</span><span class="p">[</span><span class="s2">&quot;Data&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df_bq_cameras_data</span><span class="p">[</span><span class="s2">&quot;Data&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="s2">&quot;s&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">tz_localize</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+        <span class="n">df_bq_cameras_data</span><span class="p">[</span><span class="s2">&quot;Data&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df_bq_cameras_data</span><span class="p">[</span><span class="s2">&quot;Data&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+        <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2"> %H:%M:%S&quot;</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="n">df_bq_cameras_data</span><span class="p">[</span><span class="s1">&#39;Componente&#39;</span><span class="p">]</span> <span class="o">=</span><span class="n">df_bq_cameras_data</span><span class="p">[</span><span class="s1">&#39;nm_arquivo_fonte&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">DataImporting</span><span class="o">.</span><span class="n">_fetch_component_name</span><span class="p">)</span>
+
+        <span class="n">df_bq_cameras_data</span> <span class="o">=</span> <span class="n">df_bq_cameras_data</span><span class="p">[[</span><span class="s2">&quot;Data&quot;</span><span class="p">,</span> <span class="s2">&quot;Componente&quot;</span><span class="p">,</span> <span class="s2">&quot;Temperatura&quot;</span><span class="p">]]</span>
+        <span class="n">df_bq_cameras_data</span> <span class="o">=</span> <span class="n">df_bq_cameras_data</span><span class="o">.</span><span class="n">drop_duplicates</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">df_bq_cameras_data</span> 
+
+<div class="viewcode-block" id="DataImporting.temperatura">
+<a class="viewcode-back" href="../load_data.html#load_data.DataImporting.temperatura">[docs]</a>
+    <span class="k">def</span> <span class="nf">temperatura</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">data_folder</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">equip</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">files</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">flag_cloud</span><span class="p">:</span> <span class="nb">bool</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Gera a base de dados da temperatura da sala de válvulas.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        data_folder: str</span>
+<span class="sd">            Caminho para a base de dados onde os dados estao salvos.</span>
+
+<span class="sd">        equip: list</span>
+<span class="sd">            Lista com todos os componentes monitorados pelas câmeras térmicas.</span>
+
+<span class="sd">        files: list</span>
+<span class="sd">            Lista com os arquivos importados para gerar a base de dados de temperatura.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        df: pd.DataFrame</span>
+<span class="sd">            Base de dados com os valores de temperatura.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Importando dados das câmeras térmicas...&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">flag_cloud</span><span class="p">:</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="n">DataImporting</span><span class="o">.</span><span class="n">_get_camera_data_from_bq</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">dfs</span> <span class="o">=</span> <span class="p">[]</span>
+
+            <span class="c1"># Tratamento de dados base por base</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">equip</span><span class="p">:</span>
+                <span class="n">lista</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">files</span> <span class="k">if</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">x</span><span class="p">]</span>
+                <span class="k">for</span> <span class="n">file</span> <span class="ow">in</span> <span class="n">lista</span><span class="p">:</span>
+                    <span class="c1"># Importando cada arquivo em dataframe</span>
+                    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_table</span><span class="p">(</span><span class="n">data_folder</span> <span class="o">+</span> <span class="n">file</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">delimiter</span><span class="o">=</span><span class="s2">&quot;;&quot;</span><span class="p">)</span>
+                    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Componente&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span>
+                    <span class="n">df</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                    <span class="c1"># Vamos selecionar dentre as colunas de temperatura apenas a maxima</span>
+                    <span class="n">df</span> <span class="o">=</span> <span class="n">DataImporting</span><span class="o">.</span><span class="n">_select_max_column</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+                    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Data original&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Data&quot;</span><span class="p">]</span>
+                    <span class="c1"># Vamos tirar os décimos de segundos</span>
+                    <span class="nb">type</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;Data&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                    <span class="c1"># df[&#39;Data&#39;] = pd.to_datetime(df[&#39;Data&#39;]).apply(lambda x: x.replace(microsecond=0))</span>
+                    <span class="c1">## Transformar os dados de timestamp para datetime</span>
+                    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Data&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Data&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">DataImporting</span><span class="o">.</span><span class="n">_timestamp_to_datetime</span><span class="p">)</span>
+                    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Data&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;Data&quot;</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;coerce&quot;</span><span class="p">)</span>
+                    <span class="c1"># Selecionando apenas temperatura maxima</span>
+                    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[[</span><span class="s2">&quot;Data&quot;</span><span class="p">,</span> <span class="s2">&quot;Temp Maxima&quot;</span><span class="p">,</span> <span class="s2">&quot;Componente&quot;</span><span class="p">]]</span>
+                    <span class="n">df</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;Temp Maxima&quot;</span><span class="p">:</span> <span class="s2">&quot;Temperatura&quot;</span><span class="p">},</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                    <span class="c1"># Vamos retirar os decimos de segundos da variavel de data</span>
+                    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Data&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Data&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span>
+                        <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span>
+                            <span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="n">maxsplit</span><span class="o">=</span><span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2"> %H:%M:%S&quot;</span>
+                        <span class="p">)</span>
+                    <span class="p">)</span>
+                    <span class="c1"># Vamos extrair os dados de hora</span>
+                    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Hora&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Data&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">to_pydatetime</span><span class="p">())</span>
+                    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Hora&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Hora&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">hour</span>
+                    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Dia&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Data&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">to_pydatetime</span><span class="p">())</span>
+                    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Dia&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Dia&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">date</span>
+                    <span class="c1"># Por fim, vamos filtrar apenas a primeiro dado de temperatura disponível</span>
+                    <span class="c1"># para cada hora.</span>
+                    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">sort_values</span><span class="p">([</span><span class="s2">&quot;Componente&quot;</span><span class="p">,</span> <span class="s2">&quot;Data&quot;</span><span class="p">,</span> <span class="s2">&quot;Hora&quot;</span><span class="p">,</span> <span class="s2">&quot;Temperatura&quot;</span><span class="p">])</span>
+                    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">&quot;Dia&quot;</span><span class="p">,</span> <span class="s2">&quot;Hora&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">first</span><span class="p">()</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+                    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[[</span><span class="s2">&quot;Data&quot;</span><span class="p">,</span> <span class="s2">&quot;Componente&quot;</span><span class="p">,</span> <span class="s2">&quot;Temperatura&quot;</span><span class="p">]]</span>
+                    <span class="n">dfs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+
+            <span class="c1"># Vamos juntar todas as bases em uma única e separar entre dados de</span>
+            <span class="c1"># treino e teste</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">dfs</span><span class="p">)</span>
+
+        <span class="n">df</span> <span class="o">=</span> <span class="n">DataImporting</span><span class="o">.</span><span class="n">_train_test</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        
+        <span class="c1"># Vamos modificar os nomes das valvulas pelos nomes corretos.</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">DataImporting</span><span class="o">.</span><span class="n">_rename_valvulas</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">drop_duplicates</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">df</span></div>
+
+
+<div class="viewcode-block" id="DataImporting.sage">
+<a class="viewcode-back" href="../load_data.html#load_data.DataImporting.sage">[docs]</a>
+    <span class="k">def</span> <span class="nf">sage</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">flag_cloud</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Gera a base de dados do SAGE.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        flag_cloud: bool</span>
+<span class="sd">            Booleano que indica se o script vai executar a versão local ou do GCP.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        df: pd.DataFrame</span>
+<span class="sd">            Base de dados com os valores do SAGE.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Importando dados do SAGE...&quot;</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;env.json&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">env</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+            <span class="n">path_source</span> <span class="o">=</span> <span class="n">env</span><span class="p">[</span><span class="s2">&quot;PATH_SAGE&quot;</span><span class="p">]</span>
+
+            <span class="k">if</span> <span class="n">flag_cloud</span><span class="p">:</span>
+                <span class="c1"># Modo GCS. ex.: path_source = &quot;gs://meu-bucket/pasta_sage/&quot;</span>
+                <span class="n">match</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;gs://([^/]+)/(.+)&quot;</span><span class="p">,</span> <span class="n">path_source</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">match</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Caminho GCS inválido: </span><span class="si">{</span><span class="n">path_source</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+                <span class="n">bucket_name</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">prefix</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;/&quot;</span>
+
+                <span class="n">storage_client</span> <span class="o">=</span> <span class="n">storage</span><span class="o">.</span><span class="n">Client</span><span class="p">()</span>
+                <span class="n">bucket</span> <span class="o">=</span> <span class="n">storage_client</span><span class="o">.</span><span class="n">bucket</span><span class="p">(</span><span class="n">bucket_name</span><span class="p">)</span>
+                <span class="c1"># Lista todos os blobs</span>
+                <span class="n">blobs</span> <span class="o">=</span> <span class="n">bucket</span><span class="o">.</span><span class="n">list_blobs</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="n">prefix</span><span class="p">)</span>
+                <span class="n">files</span> <span class="o">=</span> <span class="p">[</span><span class="n">blob</span> <span class="k">for</span> <span class="n">blob</span> <span class="ow">in</span> <span class="n">blobs</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">blob</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">files</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">listdir</span><span class="p">(</span><span class="n">path_source</span><span class="p">)</span> <span class="k">if</span> <span class="n">isfile</span><span class="p">(</span><span class="n">join</span><span class="p">(</span><span class="n">path_source</span><span class="p">,</span> <span class="n">f</span><span class="p">))]</span>
+
+            <span class="n">dfs_sage</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">file</span> <span class="ow">in</span> <span class="n">files</span><span class="p">:</span>
+
+                <span class="k">if</span> <span class="n">flag_cloud</span><span class="p">:</span>
+                    <span class="c1"># all_text = file.download_as_text(encoding=&quot;latin1&quot;)</span>
+                    <span class="c1"># lines = all_text.splitlines(True)</span>
+
+                    <span class="n">file_name</span> <span class="o">=</span> <span class="n">file</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                    <span class="n">file_path</span> <span class="o">=</span> <span class="n">path_source</span> <span class="o">+</span> <span class="n">file_name</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">file_path</span> <span class="o">=</span> <span class="n">path_source</span> <span class="o">+</span> <span class="n">file</span>
+                    <span class="c1"># with open(file_path, &quot;r&quot;, encoding=&quot;latin1&quot;) as f_local:</span>
+                    <span class="c1">#     lines = f_local.readlines()</span>
+
+                <span class="c1"># Supondo que file_path contenha o caminho completo para o arquivo .txt</span>
+                <span class="n">df_sage_import</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+                    <span class="n">file_path</span><span class="p">,</span>
+                    <span class="n">delimiter</span><span class="o">=</span><span class="s2">&quot;|&quot;</span><span class="p">,</span>
+                    <span class="n">skiprows</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>            <span class="c1"># Pula as três primeiras linhas do arquivo</span>
+                    <span class="n">header</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>           <span class="c1"># Não há cabeçalho no arquivo</span>
+                    <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;latin1&quot;</span><span class="p">,</span>
+                    <span class="n">skipinitialspace</span><span class="o">=</span><span class="kc">True</span>  <span class="c1"># Remove os espaços iniciais após cada delimitador</span>
+                <span class="p">)</span>
+
+                <span class="c1"># Renomeia as colunas conforme o padrão desejado</span>
+                <span class="n">df_sage_import</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="s2">&quot;descr&quot;</span><span class="p">,</span> <span class="s2">&quot;bh_dthr&quot;</span><span class="p">,</span> <span class="s2">&quot;valor&quot;</span><span class="p">]</span>
+                
+                <span class="c1"># Remove espaços extras das colunas de texto</span>
+                <span class="n">df_sage_import</span> <span class="o">=</span> <span class="n">df_sage_import</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="s2">&quot;object&quot;</span> <span class="k">else</span> <span class="n">x</span><span class="p">)</span>
+
+                <span class="c1"># Converte a coluna &#39;valor&#39; para numérico, mantendo os sinais negativos</span>
+                <span class="n">df_sage_import</span><span class="p">[</span><span class="s2">&quot;valor&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span><span class="n">df_sage_import</span><span class="p">[</span><span class="s2">&quot;valor&quot;</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;coerce&quot;</span><span class="p">)</span>
+
+                <span class="n">df_sage</span> <span class="o">=</span> <span class="n">df_sage_import</span><span class="p">[[</span><span class="s2">&quot;descr&quot;</span><span class="p">,</span> <span class="s2">&quot;bh_dthr&quot;</span><span class="p">,</span> <span class="s2">&quot;valor&quot;</span><span class="p">]]</span>
+                
+                <span class="n">colunas_analise</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="s2">&quot;AD-TF1      Potencia Ativa (A)&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;AD-TF1D     Potencia Ativa (A)&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;AD-TF1Y     Potencia Ativa (A)&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;AD-TF1      Potencia Reativa (A)&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;AD-TF1D     Potencia Reativa (A)&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;AD-TF1Y     Potencia Reativa (A)&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;AD-TF1D     Corr Fase B Enr Pri (A)&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;AD-TF1Y     Corr Fase B Enr Pri (A)&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;AD-TF1D     Temperatura Óleo do Topo FA&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;AD-TF1D     Temperatura Óleo do Topo FB&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;AD-TF1D     Temperatura Óleo do Topo FV&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;AD-TF1D     Temperatura Óleo da Base FA&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;AD-TF1D     Temperatura Óleo da Base FB&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;AD-TF1D     Temperatura Óleo da Base FV&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;AD-TF1Y     Temperatura Óleo do Topo FA&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;AD-TF1Y     Temperatura Óleo do Topo FB&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;AD-TF1Y     Temperatura Óleo do Topo FV&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;AD-TF1Y     Temperatura Óleo da Base FA&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;AD-TF1Y     Temperatura Óleo da Base FB&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;AD-TF1Y     Temperatura Óleo da Base FV&quot;</span><span class="p">,</span>
+                <span class="p">]</span>
+
+                <span class="n">df_sage</span> <span class="o">=</span> <span class="n">df_sage</span><span class="p">[</span><span class="n">df_sage</span><span class="p">[</span><span class="s2">&quot;descr&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">colunas_analise</span><span class="p">)]</span>
+
+                <span class="n">df_sage</span><span class="p">[</span><span class="s2">&quot;DATE&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">df_sage</span><span class="p">[</span><span class="s2">&quot;bh_dthr&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">tz_localize</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+
+                <span class="c1"># print(df_sage)</span>
+                <span class="n">df_sage</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;bh_dthr&quot;</span><span class="p">],</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="n">dfs_sage</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">df_sage</span><span class="p">)</span>
+
+        <span class="n">df_sage</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">dfs_sage</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">df_sage</span></div>
+
+
+<div class="viewcode-block" id="DataImporting.save">
+<a class="viewcode-back" href="../load_data.html#load_data.DataImporting.save">[docs]</a>
+    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Salva as bases de dados de temperatura e do SAGE.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        df: pd.DataFrame</span>
+<span class="sd">            Base de dados com os valores de temperatura.</span>
+
+<span class="sd">        df_sage: pd.DataFrame</span>
+<span class="sd">            Base de dados com os valores do SAGE.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Criando uma lista com todos os arquivos a serem importados</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">flag_cloud</span><span class="p">:</span>
+            <span class="c1"># Extrai bucket e prefix do caminho gs://</span>
+            <span class="n">match</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;gs://([^/]+)/(.+)&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_folder</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">match</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Caminho GCS inválido: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">data_folder</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">bucket_name</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># ex: stg-elet-gestaodeativos-vertex-dev</span>
+            <span class="n">prefix</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="k">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;/&quot;</span>
+            <span class="p">)</span>  <span class="c1"># ex: ev_41_hvdc/data/inputs/bases/</span>
+
+            <span class="c1"># Lista arquivos no GCS</span>
+            <span class="n">storage_client</span> <span class="o">=</span> <span class="n">storage</span><span class="o">.</span><span class="n">Client</span><span class="p">()</span>
+            <span class="n">bucket</span> <span class="o">=</span> <span class="n">storage_client</span><span class="o">.</span><span class="n">bucket</span><span class="p">(</span><span class="n">bucket_name</span><span class="p">)</span>
+            <span class="n">blobs</span> <span class="o">=</span> <span class="n">bucket</span><span class="o">.</span><span class="n">list_blobs</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="n">prefix</span><span class="p">)</span>
+            <span class="n">valid_blobs</span> <span class="o">=</span> <span class="p">[</span><span class="n">blob</span> <span class="k">for</span> <span class="n">blob</span> <span class="ow">in</span> <span class="n">blobs</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">blob</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)]</span>
+
+            <span class="c1"># Gera lista de nomes de arquivo (ex: &quot;arquivo1.csv&quot;, etc.)</span>
+            <span class="n">files</span> <span class="o">=</span> <span class="p">[</span><span class="n">blob</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">blob</span> <span class="ow">in</span> <span class="n">valid_blobs</span><span class="p">]</span>
+            <span class="n">equip</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span>
+                <span class="n">DataImporting</span><span class="o">.</span><span class="n">_select_componente</span><span class="p">(</span><span class="n">files</span><span class="p">,</span> <span class="s2">&quot;Elipse&quot;</span><span class="p">)</span>
+                <span class="o">+</span> <span class="n">DataImporting</span><span class="o">.</span><span class="n">_select_componente</span><span class="p">(</span><span class="n">files</span><span class="p">,</span> <span class="s2">&quot;Retangulo&quot;</span><span class="p">)</span>
+                <span class="o">+</span> <span class="n">DataImporting</span><span class="o">.</span><span class="n">_select_componente</span><span class="p">(</span><span class="n">files</span><span class="p">,</span> <span class="s2">&quot;Ponto&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">files</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">f</span>
+                <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">listdir</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_folder</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">isfile</span><span class="p">(</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_folder</span><span class="p">,</span> <span class="n">f</span><span class="p">))</span>
+            <span class="p">]</span>
+            <span class="n">equip</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span>
+                <span class="n">DataImporting</span><span class="o">.</span><span class="n">_select_componente</span><span class="p">(</span><span class="n">files</span><span class="p">,</span> <span class="s2">&quot;Elipse&quot;</span><span class="p">)</span>
+                <span class="o">+</span> <span class="n">DataImporting</span><span class="o">.</span><span class="n">_select_componente</span><span class="p">(</span><span class="n">files</span><span class="p">,</span> <span class="s2">&quot;Retangulo&quot;</span><span class="p">)</span>
+                <span class="o">+</span> <span class="n">DataImporting</span><span class="o">.</span><span class="n">_select_componente</span><span class="p">(</span><span class="n">files</span><span class="p">,</span> <span class="s2">&quot;Ponto&quot;</span><span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Vamos importar os dados do SAGE e pegar as datas para as quais temos dados</span>
+        <span class="c1"># no SAGE para filtrar os dados de temperatura.</span>
+
+        <span class="n">df_sage</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sage</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">flag_cloud</span><span class="p">)</span>
+
+        <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">temperatura</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_folder</span><span class="p">,</span> <span class="n">equip</span><span class="p">,</span> <span class="n">files</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">flag_cloud</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">df</span><span class="p">,</span> <span class="n">df_sage</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Cássio Freitas Daldegan.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

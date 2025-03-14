@@ -1,0 +1,523 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>evaluate_model &mdash; doc-hvdc 0.0.2 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=92fd9be5" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=e3a6060d"></script>
+      <script src="../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            doc-hvdc
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Conteúdo:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introducao.html">Sobre o projeto</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../load_data.html">load_data module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../process_data.html">process_data module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../build_features.html">build_features module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../train_model.html">train_model module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../evaluate_model.html">evaluate_model module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../predict_model.html">predict_model module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../visualize.html">visualize module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../dash.html">Dashboard</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">doc-hvdc</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Module code</a></li>
+      <li class="breadcrumb-item active">evaluate_model</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for evaluate_model</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">Arquivo model faz o treino e teste do modelo.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">subprocess</span>
+<span class="kn">from</span> <span class="nn">ast</span> <span class="kn">import</span> <span class="n">literal_eval</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">sklearn.metrics</span> <span class="kn">import</span> <span class="n">mean_absolute_percentage_error</span>
+<span class="kn">from</span> <span class="nn">google.cloud</span> <span class="kn">import</span> <span class="n">storage</span>
+
+
+<div class="viewcode-block" id="ModelEvaluation">
+<a class="viewcode-back" href="../evaluate_model.html#evaluate_model.ModelEvaluation">[docs]</a>
+<span class="k">class</span> <span class="nc">ModelEvaluation</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A funcao utiliza o algoritmo do Prophet para fazer uma previsao da temperatura</span>
+<span class="sd">    para cada uma das valvulas.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">        models: list</span>
+<span class="sd">            Lista dos modelos preditivos utilizados por componente.</span>
+<span class="sd">        dfs_test: list</span>
+<span class="sd">            Lista com os dataframes de treino por componente.</span>
+<span class="sd">        dfs_train: list</span>
+<span class="sd">            Lista com os dataframes de teste por componente.</span>
+<span class="sd">        flag_cloud: list</span>
+<span class="sd">            Booleano que indica se o modelo vai executar localmente ou no GCP.</span>
+
+<span class="sd">    Methods</span>
+<span class="sd">    -------</span>
+<span class="sd">        save():</span>
+<span class="sd">            Método que salva as previsões dos modelos preditivos.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">models</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
+        <span class="n">dfs_train</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
+        <span class="n">dfs_test</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
+        <span class="n">components</span><span class="p">:</span> <span class="nb">set</span><span class="p">,</span>
+        <span class="n">flag_cloud</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Inicia a classe com listas de modelos, dataframes de treino, dataframes</span>
+<span class="sd">        de teste e um booleano que indica se o modelo vai executar localmente</span>
+<span class="sd">        ou no GCP.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">models</span> <span class="o">=</span> <span class="n">models</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dfs_train</span> <span class="o">=</span> <span class="n">dfs_train</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dfs_test</span> <span class="o">=</span> <span class="n">dfs_test</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">flag_cloud</span> <span class="o">=</span> <span class="n">flag_cloud</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">components</span> <span class="o">=</span> <span class="n">components</span>
+
+<div class="viewcode-block" id="ModelEvaluation.save">
+<a class="viewcode-back" href="../evaluate_model.html#evaluate_model.ModelEvaluation.save">[docs]</a>
+    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        O método salva as bases de dados de avaliação dos modelos, com os valores</span>
+<span class="sd">        de MAPE.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Calculando o MAPE dos modelos...&quot;</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;env.json&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">env</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">flag_cloud</span><span class="p">:</span>
+                <span class="n">gcs_path</span> <span class="o">=</span> <span class="n">env</span><span class="p">[</span><span class="s2">&quot;PATH_TUNING&quot;</span><span class="p">]</span>
+                <span class="n">match</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;gs://([^/]+)/(.+)&quot;</span><span class="p">,</span> <span class="n">gcs_path</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">match</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Caminho GCS inválido: </span><span class="si">{</span><span class="n">gcs_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+                <span class="n">bucket_name</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+                <span class="n">blob_path</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+
+                <span class="n">storage_client</span> <span class="o">=</span> <span class="n">storage</span><span class="o">.</span><span class="n">Client</span><span class="p">()</span>
+                <span class="n">bucket</span> <span class="o">=</span> <span class="n">storage_client</span><span class="o">.</span><span class="n">bucket</span><span class="p">(</span><span class="n">bucket_name</span><span class="p">)</span>
+                <span class="n">blob</span> <span class="o">=</span> <span class="n">bucket</span><span class="o">.</span><span class="n">blob</span><span class="p">(</span><span class="n">blob_path</span><span class="p">)</span>
+                <span class="n">content</span> <span class="o">=</span> <span class="n">blob</span><span class="o">.</span><span class="n">download_as_text</span><span class="p">()</span>
+                <span class="n">tuning</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
+                <span class="n">tuning</span> <span class="o">=</span> <span class="n">literal_eval</span><span class="p">(</span><span class="n">tuning</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">env</span><span class="p">[</span><span class="s2">&quot;PATH_TUNING&quot;</span><span class="p">],</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                    <span class="n">tuning</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+                    <span class="n">tuning</span> <span class="o">=</span> <span class="n">literal_eval</span><span class="p">(</span><span class="n">tuning</span><span class="p">)</span>
+
+            <span class="n">df_det</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
+
+            <span class="k">for</span> <span class="n">df</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">dfs_train</span><span class="p">:</span>
+                <span class="k">del</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Componente&quot;</span><span class="p">]</span>
+            <span class="n">mape_entries</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">components</span><span class="p">)):</span>
+                <span class="n">df_test</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dfs_test</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                <span class="n">model</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+                <span class="n">componente_atual</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">components</span><span class="p">)[</span><span class="n">i</span><span class="p">]</span>
+
+                <span class="c1"># Separa entre TREINO e TESTE (conforme a coluna &#39;Treino/Teste&#39;):</span>
+
+                <span class="c1"># Caso exista conjunto de TESTE, calculamos MAPE e salvamos num arquivo</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">df_test</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+                    <span class="n">forecast_test</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">df_test</span><span class="p">[[</span><span class="s2">&quot;ds&quot;</span><span class="p">]])</span>
+
+                    <span class="c1"># Calcula MAPE</span>
+                    <span class="n">mape_pred</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="n">mean_absolute_percentage_error</span><span class="p">(</span>
+                            <span class="n">df_test</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">],</span> <span class="n">forecast_test</span><span class="p">[</span><span class="s2">&quot;yhat&quot;</span><span class="p">]</span>
+                        <span class="p">)</span>
+                        <span class="o">*</span> <span class="mi">100</span>
+                    <span class="p">)</span>
+                    <span class="nb">print</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;MAPE de previsão para </span><span class="si">{</span><span class="n">componente_atual</span><span class="si">}</span><span class="s2"> = </span><span class="si">{</span><span class="n">mape_pred</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">%&quot;</span>
+                    <span class="p">)</span>
+
+                    <span class="c1"># Monta o registro</span>
+                    <span class="n">new_entry</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+                        <span class="p">{</span>
+                            <span class="s2">&quot;Modelo&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">componente_atual</span><span class="p">],</span>
+                            <span class="s2">&quot;MAPE&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">mape_pred</span><span class="p">],</span>
+                            <span class="s2">&quot;Dia da Estimacao&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()],</span>
+                        <span class="p">}</span>
+                    <span class="p">)</span>
+
+                    <span class="c1"># Tenta ler o histórico existente</span>
+                    <span class="n">historico_pred_file</span> <span class="o">=</span> <span class="s2">&quot;historico_mape_pred.xlsx&quot;</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">flag_cloud</span><span class="p">:</span>
+                        <span class="n">local_pred_path</span> <span class="o">=</span> <span class="s2">&quot;/tmp/&quot;</span> <span class="o">+</span> <span class="n">historico_pred_file</span>
+                        <span class="n">gcs_pred_path</span> <span class="o">=</span> <span class="n">env</span><span class="p">[</span><span class="s2">&quot;PATH_OUTPUTS&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">historico_pred_file</span>
+                        <span class="k">try</span><span class="p">:</span>
+                            <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+                                <span class="p">[</span><span class="s2">&quot;gsutil&quot;</span><span class="p">,</span> <span class="s2">&quot;cp&quot;</span><span class="p">,</span> <span class="n">gcs_pred_path</span><span class="p">,</span> <span class="n">local_pred_path</span><span class="p">],</span>
+                                <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                            <span class="p">)</span>
+                            <span class="n">df_pred_hist</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_excel</span><span class="p">(</span><span class="n">local_pred_path</span><span class="p">)</span>
+                        <span class="k">except</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">CalledProcessError</span><span class="p">:</span>
+                            <span class="n">df_pred_hist</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+                                <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Modelo&quot;</span><span class="p">,</span> <span class="s2">&quot;MAPE&quot;</span><span class="p">,</span> <span class="s2">&quot;Dia da Estimacao&quot;</span><span class="p">]</span>
+                            <span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">local_pred_path</span> <span class="o">=</span> <span class="n">env</span><span class="p">[</span><span class="s2">&quot;PATH_OUTPUTS&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">historico_pred_file</span>
+                        <span class="k">try</span><span class="p">:</span>
+                            <span class="n">df_pred_hist</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_excel</span><span class="p">(</span><span class="n">local_pred_path</span><span class="p">)</span>
+                        <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+                            <span class="n">df_pred_hist</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+                                <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Modelo&quot;</span><span class="p">,</span> <span class="s2">&quot;MAPE&quot;</span><span class="p">,</span> <span class="s2">&quot;Dia da Estimacao&quot;</span><span class="p">]</span>
+                            <span class="p">)</span>
+                    <span class="n">mape_entries</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_entry</span><span class="p">)</span>
+                    <span class="c1"># Concatena, remove duplicados e ordena</span>
+                    <span class="n">df_pred_hist</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+                        <span class="p">[</span><span class="n">df_pred_hist</span><span class="p">,</span> <span class="n">new_entry</span><span class="p">],</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span>
+                    <span class="p">)</span>
+                    <span class="n">df_pred_hist</span><span class="p">[</span><span class="s2">&quot;Dia da Estimacao&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span>
+                        <span class="n">df_pred_hist</span><span class="p">[</span><span class="s2">&quot;Dia da Estimacao&quot;</span><span class="p">]</span>
+                    <span class="p">)</span>
+                    <span class="n">df_pred_hist</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="n">df_pred_hist</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span>
+                            <span class="p">[</span><span class="s2">&quot;Modelo&quot;</span><span class="p">,</span> <span class="s2">&quot;Dia da Estimacao&quot;</span><span class="p">],</span> <span class="n">as_index</span><span class="o">=</span><span class="kc">False</span>
+                        <span class="p">)</span>
+                        <span class="o">.</span><span class="n">last</span><span class="p">()</span>
+                        <span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Dia da Estimacao&quot;</span><span class="p">,</span> <span class="s2">&quot;Modelo&quot;</span><span class="p">],</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                    <span class="p">)</span>
+
+                    <span class="c1"># Salva</span>
+                    <span class="n">df_pred_hist</span><span class="o">.</span><span class="n">to_excel</span><span class="p">(</span><span class="n">local_pred_path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">flag_cloud</span><span class="p">:</span>
+                        <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+                            <span class="p">[</span><span class="s2">&quot;gsutil&quot;</span><span class="p">,</span> <span class="s2">&quot;cp&quot;</span><span class="p">,</span> <span class="n">local_pred_path</span><span class="p">,</span> <span class="n">gcs_pred_path</span><span class="p">],</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span>
+                        <span class="p">)</span>
+
+                    <span class="c1"># Salvando um SEGUNDO arquivo de MAPE DETALHADO, com todas as linhas sem agrupar</span>
+
+                    <span class="c1"># Cria o DataFrame df_merged</span>
+                    <span class="n">df_merged</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
+                        <span class="n">df_test</span><span class="p">[[</span><span class="s2">&quot;ds&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">]],</span>
+                        <span class="n">forecast_test</span><span class="p">[[</span><span class="s2">&quot;ds&quot;</span><span class="p">,</span> <span class="s2">&quot;yhat&quot;</span><span class="p">]],</span>
+                        <span class="n">on</span><span class="o">=</span><span class="s2">&quot;ds&quot;</span><span class="p">,</span>
+                        <span class="n">how</span><span class="o">=</span><span class="s2">&quot;inner&quot;</span><span class="p">,</span>
+                    <span class="p">)</span>
+
+                    <span class="n">df_merged</span><span class="p">[</span><span class="s2">&quot;MAPE&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                        <span class="p">(</span><span class="n">df_merged</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">df_merged</span><span class="p">[</span><span class="s2">&quot;yhat&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span>
+                        <span class="o">/</span> <span class="n">df_merged</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">]</span>
+                        <span class="o">*</span> <span class="mi">100</span>
+                    <span class="p">)</span>
+                    <span class="n">df_merged</span><span class="p">[</span><span class="s2">&quot;Componente&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">componente_atual</span>
+
+                    <span class="c1"># Ajusta colunas finais</span>
+                    <span class="n">df_merged</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span>
+                        <span class="n">columns</span><span class="o">=</span><span class="p">{</span>
+                            <span class="s2">&quot;ds&quot;</span><span class="p">:</span> <span class="s2">&quot;Data&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="s2">&quot;Temperatura_Real&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;yhat&quot;</span><span class="p">:</span> <span class="s2">&quot;Temperatura_Previsto&quot;</span><span class="p">,</span>
+                        <span class="p">},</span>
+                        <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="p">)</span>
+                    <span class="n">df_merged</span> <span class="o">=</span> <span class="n">df_merged</span><span class="p">[</span>
+                        <span class="p">[</span>
+                            <span class="s2">&quot;Componente&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;Data&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;Temperatura_Previsto&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;Temperatura_Real&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;MAPE&quot;</span><span class="p">,</span>
+                        <span class="p">]</span>
+                    <span class="p">]</span>
+
+                    <span class="n">df_merged</span><span class="p">[</span><span class="s2">&quot;Data&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">df_merged</span><span class="p">[</span><span class="s2">&quot;Data&quot;</span><span class="p">])</span>
+                    <span class="n">df_merged</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span>
+                        <span class="n">by</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Componente&quot;</span><span class="p">,</span> <span class="s2">&quot;Data&quot;</span><span class="p">],</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span>
+                    <span class="p">)</span>
+                    
+                    <span class="n">df_det</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">df_det</span><span class="p">,</span> <span class="n">df_merged</span><span class="p">],</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;Não há dados de teste para </span><span class="si">{</span><span class="n">componente_atual</span><span class="si">}</span><span class="s2">. MAPE não calculado.&quot;</span>
+                    <span class="p">)</span>
+                    
+            <span class="n">mape_by_component_current_execution</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+                <span class="n">mape_entries</span><span class="p">,</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span>
+            <span class="p">)</span>
+
+            <span class="c1"># Salvando arquivo detalhado</span>
+            <span class="n">detalhado_file</span> <span class="o">=</span> <span class="s2">&quot;historico_mape_detalhado.xlsx&quot;</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">flag_cloud</span><span class="p">:</span>
+                <span class="n">local_detalhado</span> <span class="o">=</span> <span class="s2">&quot;/tmp/&quot;</span> <span class="o">+</span> <span class="n">detalhado_file</span>
+                <span class="n">gcs_detalhado</span> <span class="o">=</span> <span class="n">env</span><span class="p">[</span><span class="s2">&quot;PATH_OUTPUTS&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">detalhado_file</span>
+
+                <span class="n">df_det</span><span class="o">.</span><span class="n">to_excel</span><span class="p">(</span><span class="n">local_detalhado</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+                <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+                    <span class="p">[</span><span class="s2">&quot;gsutil&quot;</span><span class="p">,</span> <span class="s2">&quot;cp&quot;</span><span class="p">,</span> <span class="n">local_detalhado</span><span class="p">,</span> <span class="n">gcs_detalhado</span><span class="p">],</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">local_detalhado</span> <span class="o">=</span> <span class="n">env</span><span class="p">[</span><span class="s2">&quot;PATH_OUTPUTS&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">detalhado_file</span>
+
+                <span class="n">df_det</span><span class="o">.</span><span class="n">to_excel</span><span class="p">(</span><span class="n">local_detalhado</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">mape_by_component_current_execution</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="ModelRetrigger">
+<a class="viewcode-back" href="../evaluate_model.html#evaluate_model.ModelRetrigger">[docs]</a>
+<span class="k">class</span> <span class="nc">ModelRetrigger</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Classe para configurar o arquivo de tuning com base no desempenho dos modelos.</span>
+
+<span class="sd">    A classe permite verificar os MAPEs dos modelos, ativar o tuning para os componentes com desempenho abaixo do esperado</span>
+<span class="sd">    e resetar os flags de tuning.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    mapes_exec : pd.DataFrame</span>
+<span class="sd">        DataFrame contendo os MAPEs da última execução para cada componente.</span>
+<span class="sd">    flag_cloud : bool</span>
+<span class="sd">        Indica se o processamento ocorrerá no ambiente cloud.</span>
+
+<span class="sd">    Methods</span>
+<span class="sd">    -------</span>
+<span class="sd">    _convert_tuning_to_str(tuning: dict) -&gt; str</span>
+<span class="sd">        Converte o dicionário de tuning para uma string com o formato original.</span>
+<span class="sd">    check_and_activate_tuning_for_high_mape(threshold: float = x.y) -&gt; bool</span>
+<span class="sd">        Verifica os MAPEs dos modelos e ativa o tuning para os componentes que excedem threshold.</span>
+<span class="sd">    reset_tuning_flags() -&gt; None</span>
+<span class="sd">        Reseta os flags de tuning de todos os componentes para False.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mapes_exec</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">flag_cloud</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Inicializa a classe ModelRetrigger.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        mapes_exec : pd.DataFrame</span>
+<span class="sd">            DataFrame contendo os MAPEs da última execução para cada componente.</span>
+<span class="sd">        flag_cloud : bool</span>
+<span class="sd">            Indica se o processamento ocorrerá em ambiente cloud.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mapes_exec</span> <span class="o">=</span> <span class="n">mapes_exec</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">flag_cloud</span> <span class="o">=</span> <span class="n">flag_cloud</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_convert_tuning_to_str</span><span class="p">(</span><span class="n">tuning</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Converte o dicionário de tuning para uma string com o formato original.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        tuning : dict</span>
+<span class="sd">            Dicionário com as configurações de tuning dos componentes.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        str</span>
+<span class="sd">            String no formato original.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">items</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">tuning</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">val_str</span> <span class="o">=</span> <span class="s2">&quot;True&quot;</span> <span class="k">if</span> <span class="n">value</span> <span class="k">else</span> <span class="s2">&quot;False&quot;</span>
+            <span class="n">items</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="se">\\</span><span class="s1">&quot;</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="se">\\</span><span class="s1">&quot;: </span><span class="si">{</span><span class="n">val_str</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">dict_str</span> <span class="o">=</span> <span class="s2">&quot;{&quot;</span> <span class="o">+</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">items</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;}&quot;</span>
+
+        <span class="k">return</span> <span class="sa">f</span><span class="s1">&#39;&quot;</span><span class="si">{</span><span class="n">dict_str</span><span class="si">}</span><span class="s1">&quot;&#39;</span>
+
+<div class="viewcode-block" id="ModelRetrigger.check_and_activate_tuning_for_high_mape">
+<a class="viewcode-back" href="../evaluate_model.html#evaluate_model.ModelRetrigger.check_and_activate_tuning_for_high_mape">[docs]</a>
+    <span class="k">def</span> <span class="nf">check_and_activate_tuning_for_high_mape</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">7.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Verifica os MAPEs dos modelos e ativa o tuning para os componentes que excedem o threshold.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        threshold : float</span>
+<span class="sd">            Valor limite do MAPE para acionar o tuning, por padrão 7.0.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        bool</span>
+<span class="sd">            True se pelo menos um componente teve o tuning ativado; caso contrário, False.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;env.json&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">env</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="n">path_tuning</span> <span class="o">=</span> <span class="n">env</span><span class="p">[</span><span class="s2">&quot;PATH_TUNING&quot;</span><span class="p">]</span>
+
+        <span class="c1"># Carrega o arquivo de tuning</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">flag_cloud</span><span class="p">:</span>
+            <span class="n">match</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;gs://([^/]+)/(.+)&quot;</span><span class="p">,</span> <span class="n">path_tuning</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">match</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Caminho GCS inválido: </span><span class="si">{</span><span class="n">path_tuning</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">bucket_name</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">blob_path</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+            <span class="n">storage_client</span> <span class="o">=</span> <span class="n">storage</span><span class="o">.</span><span class="n">Client</span><span class="p">()</span>
+            <span class="n">bucket</span> <span class="o">=</span> <span class="n">storage_client</span><span class="o">.</span><span class="n">bucket</span><span class="p">(</span><span class="n">bucket_name</span><span class="p">)</span>
+            <span class="n">blob</span> <span class="o">=</span> <span class="n">bucket</span><span class="o">.</span><span class="n">blob</span><span class="p">(</span><span class="n">blob_path</span><span class="p">)</span>
+            <span class="n">content</span> <span class="o">=</span> <span class="n">blob</span><span class="o">.</span><span class="n">download_as_text</span><span class="p">()</span>
+            <span class="n">tuning</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
+            <span class="n">tuning</span> <span class="o">=</span> <span class="n">literal_eval</span><span class="p">(</span><span class="n">tuning</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path_tuning</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">tuning</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+                <span class="n">tuning</span> <span class="o">=</span> <span class="n">literal_eval</span><span class="p">(</span><span class="n">tuning</span><span class="p">)</span>
+
+        <span class="c1"># Verifica quais componentes têm MAPE acima do threshold e ativa o tuning</span>
+        <span class="n">activated_components</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mapes_exec</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">row</span><span class="p">[</span><span class="s2">&quot;MAPE&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">threshold</span><span class="p">:</span>
+                <span class="n">comp</span> <span class="o">=</span> <span class="n">row</span><span class="p">[</span><span class="s2">&quot;Modelo&quot;</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">comp</span> <span class="ow">in</span> <span class="n">tuning</span><span class="p">:</span>
+                    <span class="n">tuning</span><span class="p">[</span><span class="n">comp</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="n">activated_components</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">comp</span><span class="p">)</span>
+
+        <span class="c1"># Converte o dicionário atualizado para string no mesmo formato original</span>
+        <span class="n">new_tuning_str</span> <span class="o">=</span> <span class="n">ModelRetrigger</span><span class="o">.</span><span class="n">_convert_tuning_to_str</span><span class="p">(</span><span class="n">tuning</span><span class="p">)</span>
+
+        <span class="c1"># Grava as alterações no arquivo de tuning</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">flag_cloud</span><span class="p">:</span>
+            <span class="n">blob</span><span class="o">.</span><span class="n">upload_from_string</span><span class="p">(</span><span class="n">new_tuning_str</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path_tuning</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">new_tuning_str</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">activated_components</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Tuning ativado para os componentes: </span><span class="si">{</span><span class="n">activated_components</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Nenhum componente excedeu o limiar para tuning.&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span></div>
+
+
+<div class="viewcode-block" id="ModelRetrigger.reset_tuning_flags">
+<a class="viewcode-back" href="../evaluate_model.html#evaluate_model.ModelRetrigger.reset_tuning_flags">[docs]</a>
+    <span class="k">def</span> <span class="nf">reset_tuning_flags</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Reseta os flags de tuning de todos os componentes, definindo-os como False.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;env.json&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">env</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="n">path_tuning</span> <span class="o">=</span> <span class="n">env</span><span class="p">[</span><span class="s2">&quot;PATH_TUNING&quot;</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">flag_cloud</span><span class="p">:</span>
+            <span class="n">match</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;gs://([^/]+)/(.+)&quot;</span><span class="p">,</span> <span class="n">path_tuning</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">match</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Caminho GCS inválido: </span><span class="si">{</span><span class="n">path_tuning</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">bucket_name</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">blob_path</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+            <span class="n">storage_client</span> <span class="o">=</span> <span class="n">storage</span><span class="o">.</span><span class="n">Client</span><span class="p">()</span>
+            <span class="n">bucket</span> <span class="o">=</span> <span class="n">storage_client</span><span class="o">.</span><span class="n">bucket</span><span class="p">(</span><span class="n">bucket_name</span><span class="p">)</span>
+            <span class="n">blob</span> <span class="o">=</span> <span class="n">bucket</span><span class="o">.</span><span class="n">blob</span><span class="p">(</span><span class="n">blob_path</span><span class="p">)</span>
+            <span class="n">content</span> <span class="o">=</span> <span class="n">blob</span><span class="o">.</span><span class="n">download_as_text</span><span class="p">()</span>
+            <span class="n">tuning</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
+            <span class="n">tuning</span> <span class="o">=</span> <span class="n">literal_eval</span><span class="p">(</span><span class="n">tuning</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">tuning</span><span class="p">:</span>
+                <span class="n">tuning</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="n">new_tuning_str</span> <span class="o">=</span> <span class="n">ModelRetrigger</span><span class="o">.</span><span class="n">_convert_tuning_to_str</span><span class="p">(</span><span class="n">tuning</span><span class="p">)</span>
+            <span class="n">blob</span><span class="o">.</span><span class="n">upload_from_string</span><span class="p">(</span><span class="n">new_tuning_str</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path_tuning</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">tuning</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+                <span class="n">tuning</span> <span class="o">=</span> <span class="n">literal_eval</span><span class="p">(</span><span class="n">tuning</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">tuning</span><span class="p">:</span>
+                <span class="n">tuning</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="n">new_tuning_str</span> <span class="o">=</span> <span class="n">ModelRetrigger</span><span class="o">.</span><span class="n">_convert_tuning_to_str</span><span class="p">(</span><span class="n">tuning</span><span class="p">)</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path_tuning</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">new_tuning_str</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Todos os flags de tuning foram resetados para False.&quot;</span><span class="p">)</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Cássio Freitas Daldegan.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

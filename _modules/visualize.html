@@ -1,0 +1,503 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>visualize &mdash; doc-hvdc 0.0.2 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=92fd9be5" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=e3a6060d"></script>
+      <script src="../_static/doctools.js?v=9a2dae69"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            doc-hvdc
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Conteúdo:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introducao.html">Sobre o projeto</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../load_data.html">load_data module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../process_data.html">process_data module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../build_features.html">build_features module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../train_model.html">train_model module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../evaluate_model.html">evaluate_model module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../predict_model.html">predict_model module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../visualize.html">visualize module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../dash.html">Dashboard</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">doc-hvdc</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Module code</a></li>
+      <li class="breadcrumb-item active">visualize</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for visualize</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">json</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span> <span class="nn">subprocess</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
+
+
+<div class="viewcode-block" id="Visualization">
+<a class="viewcode-back" href="../visualize.html#visualize.Visualization">[docs]</a>
+<span class="k">class</span> <span class="nc">Visualization</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Classe para processar e visualizar os dados.</span>
+
+<span class="sd">    A classe possibilita combinar os DataFrames de dados reais e preditos, gerar a média móvel por grupo</span>
+<span class="sd">    e salvar os resultados em arquivos csv.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    env : dict</span>
+<span class="sd">        Parametros carregados a partir do arquivo JSON.</span>
+<span class="sd">    flag_cloud : bool</span>
+<span class="sd">        Indica se o processamento ocorrerá em ambiente cloud.</span>
+
+<span class="sd">    Methods</span>
+<span class="sd">    -------</span>
+<span class="sd">    merging_predictions_actual(df_actual, df_pred, df_sage_input)</span>
+<span class="sd">        Combina os DataFrames de dados reais e preditos, gera a média móvel por grupo e salva a base consolidada.</span>
+<span class="sd">    process_data_and_save_alerts(df)</span>
+<span class="sd">        Filtra os dados previstos, gera os alertas e salva em um arquivo csv.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">env_path</span><span class="o">=</span><span class="s2">&quot;env.json&quot;</span><span class="p">,</span> <span class="n">flag_cloud</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Inicializa a classe carregando as configurações de env.json e a flag cloud.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        env_path : str, optional</span>
+<span class="sd">            Caminho para o arquivo de configuração (default &quot;env.json&quot;).</span>
+<span class="sd">        flag_cloud : bool, optional</span>
+<span class="sd">            Indica se o processamento ocorrerá em ambiente cloud.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">env_path</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">env</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">flag_cloud</span> <span class="o">=</span> <span class="n">flag_cloud</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_aggregate_sage_data_pivot</span><span class="p">(</span><span class="n">df_sage_to_agg</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Agrega os dados do DataFrame SAGE para obter uma tabela com frequência por dia e hora.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        df_sage_to_agg : pd.DataFrame</span>
+<span class="sd">            DataFrame contendo as colunas &#39;DATE&#39;, &#39;descr&#39; e &#39;valor&#39;.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        pd.DataFrame</span>
+<span class="sd">            DataFrame agregado com as colunas &#39;Date&#39; e &#39;Time&#39; para merge, com os valores preenchidos.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">sage_raw</span> <span class="o">=</span> <span class="n">df_sage_to_agg</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">sage_raw</span><span class="p">[</span><span class="s2">&quot;DATE&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">sage_raw</span><span class="p">[</span><span class="s2">&quot;DATE&quot;</span><span class="p">])</span>
+
+        <span class="n">pivot_sage_data</span> <span class="o">=</span> <span class="n">sage_raw</span><span class="o">.</span><span class="n">pivot_table</span><span class="p">(</span>
+            <span class="n">index</span><span class="o">=</span><span class="s2">&quot;DATE&quot;</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="s2">&quot;descr&quot;</span><span class="p">,</span> <span class="n">values</span><span class="o">=</span><span class="s2">&quot;valor&quot;</span><span class="p">,</span> <span class="n">aggfunc</span><span class="o">=</span><span class="s2">&quot;first&quot;</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+
+        <span class="n">pivot_sage_data</span><span class="p">[</span><span class="s2">&quot;Date&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pivot_sage_data</span><span class="p">[</span><span class="s2">&quot;DATE&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">pivot_sage_data</span><span class="p">[</span><span class="s2">&quot;Time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">pivot_sage_data</span><span class="p">[</span><span class="s2">&quot;DATE&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="s2">&quot;h&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%H:%M:%S&quot;</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="n">pivot_sage_data</span><span class="p">[</span><span class="s2">&quot;Target&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pivot_sage_data</span><span class="p">[</span><span class="s2">&quot;DATE&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="s2">&quot;h&quot;</span><span class="p">)</span>
+        <span class="n">pivot_sage_data</span><span class="p">[</span><span class="s2">&quot;diff&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">pivot_sage_data</span><span class="p">[</span><span class="s2">&quot;DATE&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">pivot_sage_data</span><span class="p">[</span><span class="s2">&quot;Target&quot;</span><span class="p">]</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span>
+
+        <span class="n">idx_min</span> <span class="o">=</span> <span class="n">pivot_sage_data</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">&quot;Date&quot;</span><span class="p">,</span> <span class="s2">&quot;Time&quot;</span><span class="p">])[</span><span class="s2">&quot;diff&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">idxmin</span><span class="p">()</span>
+        <span class="n">aggregated_sage</span> <span class="o">=</span> <span class="n">pivot_sage_data</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">idx_min</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="n">aggregated_sage</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;DATE&quot;</span><span class="p">:</span> <span class="s2">&quot;orig_DATE&quot;</span><span class="p">},</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">aggregated_sage</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Target&quot;</span><span class="p">],</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">aggregated_sage</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">&quot;orig_DATE&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="n">attribute_cols</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">col</span>
+            <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">aggregated_sage</span><span class="o">.</span><span class="n">columns</span>
+            <span class="k">if</span> <span class="n">col</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;orig_DATE&quot;</span><span class="p">,</span> <span class="s2">&quot;Date&quot;</span><span class="p">,</span> <span class="s2">&quot;Time&quot;</span><span class="p">,</span> <span class="s2">&quot;diff&quot;</span><span class="p">]</span>
+        <span class="p">]</span>
+        <span class="n">aggregated_sage</span><span class="p">[</span><span class="n">attribute_cols</span><span class="p">]</span> <span class="o">=</span> <span class="n">aggregated_sage</span><span class="p">[</span><span class="n">attribute_cols</span><span class="p">]</span><span class="o">.</span><span class="n">ffill</span><span class="p">()</span>
+
+        <span class="n">aggregated_sage</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;diff&quot;</span><span class="p">,</span> <span class="s2">&quot;orig_DATE&quot;</span><span class="p">],</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">aggregated_sage</span><span class="p">[</span><span class="s2">&quot;Date&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span>
+            <span class="n">aggregated_sage</span><span class="p">[</span><span class="s2">&quot;Date&quot;</span><span class="p">],</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2">&quot;</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">date</span>
+        <span class="n">aggregated_sage</span><span class="p">[</span><span class="s2">&quot;Time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span>
+            <span class="n">aggregated_sage</span><span class="p">[</span><span class="s2">&quot;Time&quot;</span><span class="p">],</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;%H:%M:%S&quot;</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">dt</span><span class="o">.</span><span class="n">time</span>
+
+        <span class="k">return</span> <span class="n">aggregated_sage</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_preprocess_dataframe</span><span class="p">(</span>
+        <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">df_sage_to_merge</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Realiza o merge do DataFrame principal com o DataFrame de dados SAGE.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        df : pd.DataFrame</span>
+<span class="sd">            DataFrame principal com os dados de temperatura.</span>
+<span class="sd">        df_sage_to_merge : pd.DataFrame</span>
+<span class="sd">            DataFrame contendo as informações do SAGE.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        pd.DataFrame</span>
+<span class="sd">            DataFrame após merge.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># aggregated_sage = Visualization._aggregate_sage_data_pivot(df_sage_to_merge)</span>
+
+        <span class="n">df_merged</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span>
+            <span class="n">df</span><span class="p">,</span>
+            <span class="n">df_sage_to_merge</span><span class="p">,</span>
+            <span class="n">left_on</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Data&quot;</span><span class="p">,</span> <span class="s2">&quot;Time&quot;</span><span class="p">],</span>
+            <span class="n">right_on</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Data&quot;</span><span class="p">,</span> <span class="s2">&quot;Time&quot;</span><span class="p">],</span>
+            <span class="n">how</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">df_merged</span><span class="p">[</span><span class="s2">&quot;bh_dthr&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span>
+            <span class="n">df_merged</span><span class="p">[</span><span class="s2">&quot;Data&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+            <span class="o">+</span> <span class="s2">&quot; &quot;</span>
+            <span class="o">+</span> <span class="n">df_merged</span><span class="p">[</span><span class="s2">&quot;Time&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">strip</span><span class="p">(),</span>
+            <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2"> %H:%M:%S&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">df_merged</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_append_to_csv</span><span class="p">(</span><span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">csv_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Salva o DataFrame em um arquivo CSV, criando ou anexando os dados.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        df : pd.DataFrame</span>
+<span class="sd">            DataFrame a ser salvo.</span>
+<span class="sd">        csv_path : str</span>
+<span class="sd">            Caminho para o arquivo CSV.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">csv_file</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">csv_path</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">csv_file</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+            <span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">csv_file</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">csv_file</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_get_7day_moving_average_by_group</span><span class="p">(</span>
+        <span class="n">df</span><span class="p">,</span>
+        <span class="n">coluna_tempo</span><span class="p">,</span>
+        <span class="n">coluna_grupo</span><span class="p">,</span>
+        <span class="n">coluna_valor</span><span class="p">,</span>
+        <span class="n">janela_dias</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span>
+        <span class="n">nova_coluna</span><span class="o">=</span><span class="s2">&quot;media_7dias_grupo&quot;</span><span class="p">,</span>
+        <span class="n">valor_default</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Calcula a média móvel dos últimos &#39;janela_dias&#39; para cada grupo.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        df : pd.DataFrame</span>
+<span class="sd">            DataFrame de entrada.</span>
+<span class="sd">        coluna_tempo : str</span>
+<span class="sd">            Nome da coluna de data/hora.</span>
+<span class="sd">        coluna_grupo : str</span>
+<span class="sd">            Nome da coluna de agrupamento.</span>
+<span class="sd">        coluna_valor : str</span>
+<span class="sd">            Nome da coluna para calcular a média.</span>
+<span class="sd">        janela_dias : int</span>
+<span class="sd">            Número de dias para a janela da média móvel (default é 7).</span>
+<span class="sd">        nova_coluna : str</span>
+<span class="sd">            Nome da nova coluna (default é &#39;media_7dias_grupo&#39;).</span>
+<span class="sd">        valor_default : NaN</span>
+<span class="sd">            Valor padrão se não houver dados (default é np.nan).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        pd.DataFrame</span>
+<span class="sd">            DataFrame com a nova coluna adicionada.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">df</span><span class="p">[</span><span class="n">coluna_tempo</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="n">coluna_tempo</span><span class="p">])</span>
+        <span class="n">data_maxima</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">coluna_tempo</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+        <span class="c1"># print(&quot;data maxima&quot;, data_maxima)</span>
+        <span class="n">data_limite</span> <span class="o">=</span> <span class="n">data_maxima</span> <span class="o">-</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="n">janela_dias</span><span class="p">)</span>
+        <span class="n">df_janela</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="n">coluna_tempo</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">data_limite</span><span class="p">]</span>
+        <span class="n">media_grupo</span> <span class="o">=</span> <span class="n">df_janela</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">coluna_grupo</span><span class="p">)[</span><span class="n">coluna_valor</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+        <span class="n">media_grupo_dict</span> <span class="o">=</span> <span class="n">media_grupo</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+        <span class="n">df</span><span class="p">[</span><span class="n">nova_coluna</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">coluna_grupo</span><span class="p">]</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">media_grupo_dict</span><span class="p">)</span>
+        <span class="n">df</span><span class="p">[</span><span class="n">nova_coluna</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">nova_coluna</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">valor_default</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">df</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_filter_predictions</span><span class="p">(</span><span class="n">df</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Filtra as linhas onde &#39;Tipo&#39; é &#39;Previsto&#39;.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        df : pd.DataFrame</span>
+<span class="sd">            DataFrame de entrada.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        pd.DataFrame</span>
+<span class="sd">            DataFrame filtrado.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;Tipo&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;Previsto&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_get_first_critical_alerts</span><span class="p">(</span><span class="n">df</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Retorna o primeiro alerta crítico para cada componente.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        df : pd.DataFrame</span>
+<span class="sd">            DataFrame contendo as informações de alerta.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        pd.DataFrame</span>
+<span class="sd">            DataFrame com o primeiro alerta crítico para cada componente.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Alerta_Critico&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Temperatura&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">75</span>
+        <span class="n">df_crit</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;Alerta_Critico&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">df_crit</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">&quot;bh_dthr&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">df_crit</span><span class="o">.</span><span class="n">drop_duplicates</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="s2">&quot;Componente&quot;</span><span class="p">,</span> <span class="n">keep</span><span class="o">=</span><span class="s2">&quot;first&quot;</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_get_moving_average_alerts</span><span class="p">(</span><span class="n">df</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Retorna os registros com variação percentual da temperatura acima do limiar.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        df : pd.DataFrame</span>
+<span class="sd">            DataFrame contendo os dados de temperatura e média móvel.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        pd.DataFrame</span>
+<span class="sd">            DataFrame com os registros que acionam o alerta.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Alerta&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;Temperatura&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;media_7dias_grupo&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mf">0.168</span>
+        <span class="k">return</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;Alerta&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+<div class="viewcode-block" id="Visualization.process_data_and_save_alerts">
+<a class="viewcode-back" href="../visualize.html#visualize.Visualization.process_data_and_save_alerts">[docs]</a>
+    <span class="k">def</span> <span class="nf">process_data_and_save_alerts</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Filtra os dados previstos, gera os alertas e salva em um único arquivo CSV.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        df : pd.DataFrame</span>
+<span class="sd">            DataFrame contendo os dados de entrada.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">df_previsto</span> <span class="o">=</span> <span class="n">Visualization</span><span class="o">.</span><span class="n">_filter_predictions</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+        <span class="n">df_primeiros_alertas_criticos</span> <span class="o">=</span> <span class="n">Visualization</span><span class="o">.</span><span class="n">_get_first_critical_alerts</span><span class="p">(</span>
+            <span class="n">df_previsto</span>
+        <span class="p">)</span>
+        <span class="n">df_alertas_media_movel</span> <span class="o">=</span> <span class="n">Visualization</span><span class="o">.</span><span class="n">_get_moving_average_alerts</span><span class="p">(</span><span class="n">df_previsto</span><span class="p">)</span>
+
+        <span class="n">df_primeiros_alertas_criticos</span><span class="p">[</span><span class="s2">&quot;Tipo_Alerta&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;Critico&quot;</span>
+        <span class="n">df_alertas_media_movel</span><span class="p">[</span><span class="s2">&quot;Tipo_Alerta&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;Media_Movel&quot;</span>
+
+        <span class="n">df_alertas_unificado</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">df_primeiros_alertas_criticos</span><span class="p">,</span> <span class="n">df_alertas_media_movel</span><span class="p">])</span>
+            <span class="o">.</span><span class="n">drop_duplicates</span><span class="p">()</span>
+            <span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="n">df_alertas_unificado</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span>
+            <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Alerta_Critico&quot;</span><span class="p">,</span> <span class="s2">&quot;Alerta&quot;</span><span class="p">,</span> <span class="s2">&quot;Data&quot;</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
+
+        <span class="n">time_of_save</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2"> %H:%M:%S&quot;</span><span class="p">)</span>
+        <span class="n">df_alertas_unificado</span><span class="p">[</span><span class="s2">&quot;Save_DateTime&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">time_of_save</span>
+
+        <span class="n">path_save_alertas</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="p">[</span><span class="s2">&quot;PATH_OUTPUTS&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;alertas_hvdc.csv&quot;</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">flag_cloud</span><span class="p">:</span>
+            <span class="n">local_csv_path</span> <span class="o">=</span> <span class="s2">&quot;/tmp/alertas_hvdc.csv&quot;</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+                <span class="p">[</span><span class="s2">&quot;gsutil&quot;</span><span class="p">,</span> <span class="s2">&quot;ls&quot;</span><span class="p">,</span> <span class="n">path_save_alertas</span><span class="p">],</span>
+                <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">,</span>
+                <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">,</span>
+                <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">returncode</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+                    <span class="p">[</span><span class="s2">&quot;gsutil&quot;</span><span class="p">,</span> <span class="s2">&quot;cp&quot;</span><span class="p">,</span> <span class="n">path_save_alertas</span><span class="p">,</span> <span class="n">local_csv_path</span><span class="p">],</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span>
+                <span class="p">)</span>
+                <span class="n">df_alertas_unificado</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span>
+                    <span class="n">local_csv_path</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">False</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">df_alertas_unificado</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span>
+                    <span class="n">local_csv_path</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">True</span>
+                <span class="p">)</span>
+            <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+                <span class="p">[</span><span class="s2">&quot;gsutil&quot;</span><span class="p">,</span> <span class="s2">&quot;cp&quot;</span><span class="p">,</span> <span class="n">local_csv_path</span><span class="p">,</span> <span class="n">path_save_alertas</span><span class="p">],</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path_save_alertas</span><span class="p">):</span>
+                <span class="n">df_alertas_unificado</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span>
+                    <span class="n">path_save_alertas</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;a&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">False</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">df_alertas_unificado</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span>
+                    <span class="n">path_save_alertas</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">header</span><span class="o">=</span><span class="kc">True</span>
+                <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Visualization.merging_predictions_and_historic_data">
+<a class="viewcode-back" href="../visualize.html#visualize.Visualization.merging_predictions_and_historic_data">[docs]</a>
+    <span class="k">def</span> <span class="nf">merging_predictions_and_historic_data</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">df_actual</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+        <span class="n">df_pred</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+        <span class="n">df_sage_input</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Combina os DataFrames de dados reais e preditos, gera a média móvel por grupo e salva a base consolidada.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        df_actual : pd.DataFrame</span>
+<span class="sd">            DataFrame com os dados reais.</span>
+<span class="sd">        df_pred : pd.DataFrame</span>
+<span class="sd">            DataFrame com os dados preditos.</span>
+<span class="sd">        df_sage_input : pd.DataFrame</span>
+<span class="sd">            DataFrame com os dados do SAGE.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        pd.DataFrame</span>
+<span class="sd">            DataFrame combinado com os dados reais e preditos.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">df_actual_with_sage_data</span> <span class="o">=</span> <span class="n">Visualization</span><span class="o">.</span><span class="n">_preprocess_dataframe</span><span class="p">(</span>
+            <span class="n">df_actual</span><span class="p">,</span> <span class="n">df_sage_input</span>
+        <span class="p">)</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">df_actual_with_sage_data</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">Tipo</span><span class="o">=</span><span class="s2">&quot;Real&quot;</span><span class="p">),</span>
+                <span class="n">df_pred</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">Tipo</span><span class="o">=</span><span class="s2">&quot;Previsto&quot;</span><span class="p">),</span>
+            <span class="p">],</span>
+            <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">condicoes</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Componente&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="s2">&quot;Tiristor&quot;</span><span class="p">,</span> <span class="n">case</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">na</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+            <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Componente&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="s2">&quot;Bucha&quot;</span><span class="p">,</span> <span class="n">case</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">na</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+            <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Componente&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="s2">&quot;Para raio&quot;</span><span class="p">,</span> <span class="n">case</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">na</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+            <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Componente&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="s2">&quot;Reator&quot;</span><span class="p">,</span> <span class="n">case</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">na</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+        <span class="p">]</span>
+        <span class="n">grupos</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Tiristor&quot;</span><span class="p">,</span> <span class="s2">&quot;Bucha&quot;</span><span class="p">,</span> <span class="s2">&quot;Para-Raio&quot;</span><span class="p">,</span> <span class="s2">&quot;Reator&quot;</span><span class="p">]</span>
+        <span class="n">df</span><span class="p">[</span><span class="s2">&quot;Grupo&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">condicoes</span><span class="p">,</span> <span class="n">grupos</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;Outro&quot;</span><span class="p">)</span>
+
+        <span class="n">df</span> <span class="o">=</span> <span class="n">Visualization</span><span class="o">.</span><span class="n">_get_7day_moving_average_by_group</span><span class="p">(</span>
+            <span class="n">df</span><span class="o">=</span><span class="n">df</span><span class="p">,</span>
+            <span class="n">coluna_tempo</span><span class="o">=</span><span class="s2">&quot;bh_dthr&quot;</span><span class="p">,</span>
+            <span class="n">coluna_grupo</span><span class="o">=</span><span class="s2">&quot;Grupo&quot;</span><span class="p">,</span>
+            <span class="n">coluna_valor</span><span class="o">=</span><span class="s2">&quot;Temperatura&quot;</span><span class="p">,</span>
+            <span class="n">janela_dias</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span>
+            <span class="n">nova_coluna</span><span class="o">=</span><span class="s2">&quot;media_7dias_grupo&quot;</span><span class="p">,</span>
+            <span class="n">valor_default</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">flag_cloud</span><span class="p">:</span>
+            <span class="n">local_csv_path</span> <span class="o">=</span> <span class="s2">&quot;/tmp/Dados_hvdc.csv&quot;</span>
+            <span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">local_csv_path</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">gcs_csv_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="p">[</span><span class="s2">&quot;PATH_OUTPUTS&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;Dados_hvdc.csv&quot;</span>
+            <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="s2">&quot;gsutil&quot;</span><span class="p">,</span> <span class="s2">&quot;cp&quot;</span><span class="p">,</span> <span class="n">local_csv_path</span><span class="p">,</span> <span class="n">gcs_csv_path</span><span class="p">],</span> <span class="n">check</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">env</span><span class="p">[</span><span class="s2">&quot;PATH_OUTPUTS&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;Dados_hvdc.csv&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">df</span></div>
+</div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Cássio Freitas Daldegan.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
